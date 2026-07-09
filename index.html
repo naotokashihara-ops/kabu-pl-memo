@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1a1a2e">
 <title>株損益メモ</title>
+<!-- ホーム画面アイコン（iPhone） -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<!-- ホーム画面から全画面アプリとして起動 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="株損益メモ">
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   :root {
@@ -45,12 +54,16 @@
   .field { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .field label { font-size: 11px; color: var(--sub); padding-left: 2px; }
   input {
-    width: 100%; height: 46px; padding: 0 12px;
+    width: 100%; min-width: 0; max-width: 100%; height: 46px; padding: 0 12px;
     border: 1px solid var(--line); border-radius: 12px;
     background: #fbfcfe; color: var(--text);
     font-size: 16px; /* 16px以上でiOSの自動ズームを防ぐ */
     outline: none; transition: border-color .15s, background .15s;
+    -webkit-appearance: none; appearance: none; /* iOSで日付欄が横にはみ出すのを防ぐ */
   }
+  /* 日付欄：iOSで幅100%を効かせつつ、中身を左寄せで表示 */
+  input[type="date"] { display: block; text-align: left; }
+  input[type="date"]::-webkit-date-and-time-value { text-align: left; }
   input:focus { border-color: var(--accent); background: #fff; }
   input::placeholder { color: #b3bac8; }
   input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
