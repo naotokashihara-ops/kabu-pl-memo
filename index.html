@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a2e">
+<title>株損益メモ</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #f2f4f8;
+    --card: #ffffff;
+    --line: #e2e6ee;
+    --text: #1c2333;
+    --sub: #7a8296;
+    --accent: #2f6df6;
+    --plus: #d13a3a;    /* 利益：赤（株の慣習に合わせる） */
+    --minus: #1f8a4c;   /* 損失：緑 */
+    --danger: #e5484d;
+    --header-h: 210px;
+    --footer-h: 88px;
+  }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+    overscroll-behavior: none;
+  }
+  body { display: flex; flex-direction: column; height: 100dvh; }
+
+  /* ===== 入力エリア（上部固定） ===== */
+  header {
+    flex: 0 0 auto;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 16px 12px;
+  }
+  header h1 {
+    margin: 0 0 12px;
+    font-size: 17px; font-weight: 700; letter-spacing: .02em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  header h1 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+  .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .field { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 11px; color: var(--sub); padding-left: 2px; }
+  input {
+    width: 100%; height: 46px; padding: 0 12px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: #fbfcfe; color: var(--text);
+    font-size: 16px; /* 16px以上でiOSの自動ズームを防ぐ */
+    outline: none; transition: border-color .15s, background .15s;
+  }
+  input:focus { border-color: var(--accent); background: #fff; }
+  input::placeholder { color: #b3bac8; }
+  input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .add-btn {
+    width: 100%; height: 48px; margin-top: 2px;
+    border: none; border-radius: 12px;
+    background: var(--accent); color: #fff;
+    font-size: 16px; font-weight: 700; letter-spacing: .04em;
+    cursor: pointer; transition: opacity .15s, transform .05s;
+  }
+  .add-btn:active { transform: scale(.99); opacity: .9; }
+
+  /* ===== 一覧エリア（中央スクロール） ===== */
+  main {
+    flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 10px 12px 14px;
+  }
+  .list-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 4px 6px 8px; color: var(--sub); font-size: 12px;
+  }
+  .list-head .count { font-weight: 600; }
+
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;
+  }
+  .li-main { flex: 1; min-width: 0; }
+  .li-name { font-size: 15px; font-weight: 600; word-break: break-word; line-height: 1.3; }
+  .li-date { font-size: 12px; color: var(--sub); margin-top: 3px; }
+  .li-pl {
+    flex: 0 0 auto; font-size: 16px; font-weight: 700;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .li-pl.plus { color: var(--plus); }
+  .li-pl.minus { color: var(--minus); }
+  .del-btn {
+    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
+    border: none; background: #f3f4f7; color: var(--sub);
+    font-size: 18px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .del-btn:active { background: #ffe1e2; color: var(--danger); }
+
+  .empty {
+    text-align: center; color: var(--sub); font-size: 14px;
+    padding: 48px 20px; line-height: 1.7;
+  }
+  .empty .big { font-size: 34px; margin-bottom: 8px; }
+
+  /* ===== 合計損益エリア（下部固定） ===== */
+  footer {
+    flex: 0 0 auto;
+    background: var(--card);
+    border-top: 1px solid var(--line);
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 -4px 16px rgba(20,30,60,.06);
+  }
+  footer .label { font-size: 14px; color: var(--sub); font-weight: 600; }
+  footer .total {
+    font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+  }
+  footer .total.plus { color: var(--plus); }
+  footer .total.minus { color: var(--minus); }
+  footer .total.zero { color: var(--text); }
+</style>
+</head>
+<body>
+  <header>
+    <h1><span class="dot"></span>株損益メモ</h1>
+    <div class="form-row">
+      <div class="field" style="flex: 1.1;">
+        <label for="date">売却日</label>
+        <input type="date" id="date">
+      </div>
+      <div class="field" style="flex: 1.3;">
+        <label for="name">銘柄</label>
+        <input type="text" id="name" placeholder="例）トヨタ" autocomplete="off" enterkeyhint="next">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="pl">損益（円・損失は −）</label>
+        <input type="number" id="pl" placeholder="10000 / -5000" inputmode="numeric" enterkeyhint="done">
+      </div>
+    </div>
+    <button class="add-btn" id="addBtn">追加する</button>
+  </header>
+
+  <main>
+    <div class="list-head">
+      <span>売買履歴</span>
+      <span class="count" id="count">0件</span>
+    </div>
+    <ul id="list"></ul>
+    <div class="empty" id="empty">
+      <div class="big">📈</div>
+      まだ記録がありません。<br>上のフォームから追加してください。
+    </div>
+  </main>
+
+  <footer>
+    <span class="label">合計損益</span>
+    <span class="total zero" id="total">0円</span>
+  </footer>
+
+<script>
+  const STORAGE_KEY = 'kabu_pl_records_v1';
+  const $ = (id) => document.getElementById(id);
+  const dateEl = $('date'), nameEl = $('name'), plEl = $('pl');
+
+  let records = load();
+
+  // 起動時：日付欄を今日にする
+  dateEl.value = todayStr();
+
+  render();
+
+  $('addBtn').addEventListener('click', add);
+  // 損益欄でEnter/完了 → 追加
+  plEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+  nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') plEl.focus(); });
+
+  function add() {
+    const date = dateEl.value;
+    const name = nameEl.value.trim();
+    const raw = plEl.value.trim();
+
+    if (!date) { alert('売却日を入力してください'); return; }
+    if (!name) { alert('銘柄を入力してください'); nameEl.focus(); return; }
+    if (raw === '' || isNaN(Number(raw))) { alert('損益を数値で入力してください'); plEl.focus(); return; }
+
+    records.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      date,
+      name,
+      pl: Math.round(Number(raw))
+    });
+    save();
+    render();
+
+    // 次の入力に備える（日付は今日にリセット、銘柄・損益は空に）
+    nameEl.value = '';
+    plEl.value = '';
+    dateEl.value = todayStr();
+    nameEl.focus();
+  }
+
+  function remove(id) {
+    const r = records.find(x => x.id === id);
+    if (r && !confirm(`「${r.name}」の記録を削除しますか？`)) return;
+    records = records.filter(x => x.id !== id);
+    save();
+    render();
+  }
+
+  function render() {
+    const list = $('list');
+    list.innerHTML = '';
+
+    // 新しい売却日が上（同日は後から入力したものが上）
+    const sorted = [...records].sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return a.id < b.id ? 1 : -1;
+    });
+
+    $('empty').style.display = records.length ? 'none' : 'block';
+    $('count').textContent = records.length + '件';
+
+    for (const r of sorted) {
+      const li = document.createElement('li');
+      const cls = r.pl > 0 ? 'plus' : (r.pl < 0 ? 'minus' : '');
+      li.innerHTML = `
+        <div class="li-main">
+          <div class="li-name"></div>
+          <div class="li-date">${formatDate(r.date)}</div>
+        </div>
+        <div class="li-pl ${cls}">${formatYen(r.pl)}</div>
+        <button class="del-btn" aria-label="削除">✕</button>`;
+      li.querySelector('.li-name').textContent = r.name;
+      li.querySelector('.del-btn').addEventListener('click', () => remove(r.id));
+      list.appendChild(li);
+    }
+
+    const total = records.reduce((s, r) => s + r.pl, 0);
+    const totalEl = $('total');
+    totalEl.textContent = formatYen(total);
+    totalEl.className = 'total ' + (total > 0 ? 'plus' : (total < 0 ? 'minus' : 'zero'));
+  }
+
+  // ===== ユーティリティ =====
+  function formatYen(n) {
+    const sign = n > 0 ? '+' : (n < 0 ? '-' : '');
+    return sign + Math.abs(n).toLocaleString('ja-JP') + '円';
+  }
+  function formatDate(iso) {
+    const [y, m, d] = iso.split('-');
+    return `${y}/${m}/${d}`;
+  }
+  function todayStr() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+  function load() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      return Array.isArray(data) ? data : [];
+    } catch { return []; }
+  }
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  }
+</script>
+</body>
+</html>
