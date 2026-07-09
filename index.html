@@ -127,19 +127,21 @@
   <header>
     <h1><span class="dot"></span>株損益メモ</h1>
     <div class="form-row">
-      <div class="field" style="flex: 1.1;">
+      <div class="field">
         <label for="date">売却日</label>
         <input type="date" id="date">
       </div>
-      <div class="field" style="flex: 1.3;">
+    </div>
+    <div class="form-row">
+      <div class="field">
         <label for="name">銘柄</label>
-        <input type="text" id="name" placeholder="例）トヨタ" autocomplete="off" enterkeyhint="next">
+        <input type="text" id="name" autocomplete="off" enterkeyhint="next">
       </div>
     </div>
     <div class="form-row">
       <div class="field">
         <label for="pl">損益（円・損失は −）</label>
-        <input type="number" id="pl" placeholder="10000 / -5000" inputmode="numeric" enterkeyhint="done">
+        <input type="number" id="pl" inputmode="numeric" enterkeyhint="done">
       </div>
     </div>
     <button class="add-btn" id="addBtn">追加する</button>
