@@ -23,8 +23,8 @@
     --text: #1c2333;
     --sub: #7a8296;
     --accent: #2f6df6;
-    --plus: #d13a3a;    /* 利益：赤（株の慣習に合わせる） */
-    --minus: #1f8a4c;   /* 損失：緑 */
+    --plus: #1668e3;    /* 利益：青 */
+    --minus: #d13a3a;   /* 損失：赤 */
     --danger: #e5484d;
     --header-h: 210px;
     --footer-h: 88px;
@@ -61,9 +61,9 @@
     outline: none; transition: border-color .15s, background .15s;
     -webkit-appearance: none; appearance: none; /* iOSで日付欄が横にはみ出すのを防ぐ */
   }
-  /* 日付欄：iOSで幅100%を効かせつつ、中身を左寄せで表示 */
-  input[type="date"] { display: block; text-align: left; }
-  input[type="date"]::-webkit-date-and-time-value { text-align: left; }
+  /* 日付欄：iOSで幅100%を効かせ、中身を上下中央・左寄せで表示 */
+  input[type="date"] { display: flex; align-items: center; text-align: left; }
+  input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
   input:focus { border-color: var(--accent); background: #fff; }
   input::placeholder { color: #b3bac8; }
   input[type="number"] { text-align: right; font-variant-numeric: tabular-nums; }
@@ -83,10 +83,16 @@
     padding: 10px 12px 14px;
   }
   .list-head {
-    display: flex; align-items: baseline; justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
     padding: 4px 6px 8px; color: var(--sub); font-size: 12px;
   }
+  .list-head .right { display: flex; align-items: center; gap: 12px; }
   .list-head .count { font-weight: 600; }
+  .edit-btn {
+    border: none; background: transparent; color: var(--accent);
+    font-size: 14px; font-weight: 700; padding: 4px 2px; cursor: pointer;
+  }
+  .edit-btn:active { opacity: .6; }
 
   ul { list-style: none; margin: 0; padding: 0; }
   li {
@@ -103,13 +109,23 @@
   }
   .li-pl.plus { color: var(--plus); }
   .li-pl.minus { color: var(--minus); }
-  .del-btn {
-    flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
-    border: none; background: #f3f4f7; color: var(--sub);
-    font-size: 18px; line-height: 1; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
+
+  /* ===== 編集モード ===== */
+  li.editing { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px; }
+  .edit-grid { display: flex; gap: 8px; }
+  .edit-grid input {
+    height: 42px; padding: 0 10px; font-size: 16px;
+    border: 1px solid var(--line); border-radius: 10px; background: #fbfcfe;
   }
-  .del-btn:active { background: #ffe1e2; color: var(--danger); }
+  .edit-grid .e-date { flex: 1.05; }
+  .edit-grid .e-name { flex: 1.25; }
+  .edit-grid .e-pl { flex: 1; text-align: right; font-variant-numeric: tabular-nums; }
+  .row-del {
+    align-self: flex-end; border: none; border-radius: 10px;
+    background: #fdecec; color: var(--danger);
+    font-size: 14px; font-weight: 700; padding: 8px 16px; cursor: pointer;
+  }
+  .row-del:active { background: #f8d4d4; }
 
   .empty {
     text-align: center; color: var(--sub); font-size: 14px;
@@ -122,7 +138,7 @@
     flex: 0 0 auto;
     background: var(--card);
     border-top: 1px solid var(--line);
-    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    padding: 22px 20px calc(22px + env(safe-area-inset-bottom));
     display: flex; align-items: center; justify-content: space-between;
     box-shadow: 0 -4px 16px rgba(20,30,60,.06);
   }
@@ -163,7 +179,10 @@
   <main>
     <div class="list-head">
       <span>売買履歴</span>
-      <span class="count" id="count">0件</span>
+      <span class="right">
+        <span class="count" id="count">0件</span>
+        <button class="edit-btn" id="editBtn">編集</button>
+      </span>
     </div>
     <ul id="list"></ul>
     <div class="empty" id="empty">
@@ -183,6 +202,7 @@
   const dateEl = $('date'), nameEl = $('name'), plEl = $('pl');
 
   let records = load();
+  let editing = false;
 
   // 起動時：日付欄を今日にする
   dateEl.value = todayStr();
@@ -190,9 +210,15 @@
   render();
 
   $('addBtn').addEventListener('click', add);
+  $('editBtn').addEventListener('click', toggleEdit);
   // 損益欄でEnter/完了 → 追加
   plEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
   nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') plEl.focus(); });
+
+  function toggleEdit() {
+    editing = !editing;
+    render();
+  }
 
   function add() {
     const date = dateEl.value;
@@ -221,7 +247,7 @@
 
   function remove(id) {
     const r = records.find(x => x.id === id);
-    if (r && !confirm(`「${r.name}」の記録を削除しますか？`)) return;
+    if (r && !confirm(`「${r.name || 'この記録'}」を削除しますか？`)) return;
     records = records.filter(x => x.id !== id);
     save();
     render();
@@ -240,21 +266,62 @@
     $('empty').style.display = records.length ? 'none' : 'block';
     $('count').textContent = records.length + '件';
 
+    // 記録が無いときは編集モードを解除・ボタンを隠す
+    const editBtn = $('editBtn');
+    if (!records.length) editing = false;
+    editBtn.style.display = records.length ? '' : 'none';
+    editBtn.textContent = editing ? '完了' : '編集';
+
     for (const r of sorted) {
-      const li = document.createElement('li');
-      const cls = r.pl > 0 ? 'plus' : (r.pl < 0 ? 'minus' : '');
-      li.innerHTML = `
-        <div class="li-main">
-          <div class="li-name"></div>
-          <div class="li-date">${formatDate(r.date)}</div>
-        </div>
-        <div class="li-pl ${cls}">${formatYen(r.pl)}</div>
-        <button class="del-btn" aria-label="削除">✕</button>`;
-      li.querySelector('.li-name').textContent = r.name;
-      li.querySelector('.del-btn').addEventListener('click', () => remove(r.id));
-      list.appendChild(li);
+      list.appendChild(editing ? editRow(r) : viewRow(r));
     }
 
+    updateTotal();
+  }
+
+  // 通常表示の行
+  function viewRow(r) {
+    const li = document.createElement('li');
+    const cls = r.pl > 0 ? 'plus' : (r.pl < 0 ? 'minus' : '');
+    li.innerHTML = `
+      <div class="li-main">
+        <div class="li-name"></div>
+        <div class="li-date">${formatDate(r.date)}</div>
+      </div>
+      <div class="li-pl ${cls}">${formatYen(r.pl)}</div>`;
+    li.querySelector('.li-name').textContent = r.name;
+    return li;
+  }
+
+  // 編集モードの行（日付・銘柄・損益を直接編集＋削除）
+  function editRow(r) {
+    const li = document.createElement('li');
+    li.className = 'editing';
+    li.innerHTML = `
+      <div class="edit-grid">
+        <input type="date" class="e-date" value="${r.date}">
+        <input type="text" class="e-name">
+        <input type="number" class="e-pl" inputmode="numeric">
+      </div>
+      <button class="row-del">この記録を削除</button>`;
+    const dateI = li.querySelector('.e-date');
+    const nameI = li.querySelector('.e-name');
+    const plI = li.querySelector('.e-pl');
+    nameI.value = r.name;
+    plI.value = r.pl;
+
+    dateI.addEventListener('change', () => { if (dateI.value) { r.date = dateI.value; save(); } });
+    nameI.addEventListener('input', () => { r.name = nameI.value; save(); });
+    plI.addEventListener('input', () => {
+      const v = plI.value.trim();
+      r.pl = (v === '' || isNaN(Number(v))) ? 0 : Math.round(Number(v));
+      save(); updateTotal();
+    });
+    li.querySelector('.row-del').addEventListener('click', () => remove(r.id));
+    return li;
+  }
+
+  function updateTotal() {
     const total = records.reduce((s, r) => s + r.pl, 0);
     const totalEl = $('total');
     totalEl.textContent = formatYen(total);
