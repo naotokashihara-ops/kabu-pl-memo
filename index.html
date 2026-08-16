@@ -2,6 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<!-- セキュリティ多層防御：外部通信/外部スクリプトを禁止し、影響範囲を最小化 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none';">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1a1a2e">
 <title>株損益メモ</title>
@@ -230,7 +233,7 @@
     if (raw === '' || isNaN(Number(raw))) { alert('損益を数値で入力してください'); plEl.focus(); return; }
 
     records.push({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      id: newId(),
       date,
       name,
       pl: Math.round(Number(raw))
@@ -279,36 +282,34 @@
     updateTotal();
   }
 
+  // 小さなDOM生成ヘルパー（値は常にプロパティ経由でセット＝HTMLとして解釈されない）
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
   // 通常表示の行
   function viewRow(r) {
-    const li = document.createElement('li');
+    const li = el('li');
+    const main = el('div', 'li-main');
+    main.append(el('div', 'li-name', r.name), el('div', 'li-date', formatDate(r.date)));
     const cls = r.pl > 0 ? 'plus' : (r.pl < 0 ? 'minus' : '');
-    li.innerHTML = `
-      <div class="li-main">
-        <div class="li-name"></div>
-        <div class="li-date">${formatDate(r.date)}</div>
-      </div>
-      <div class="li-pl ${cls}">${formatYen(r.pl)}</div>`;
-    li.querySelector('.li-name').textContent = r.name;
+    li.append(main, el('div', 'li-pl ' + cls, formatYen(r.pl)));
     return li;
   }
 
   // 編集モードの行（日付・銘柄・損益を直接編集＋削除）
   function editRow(r) {
-    const li = document.createElement('li');
-    li.className = 'editing';
-    li.innerHTML = `
-      <div class="edit-grid">
-        <input type="date" class="e-date" value="${r.date}">
-        <input type="text" class="e-name">
-        <input type="number" class="e-pl" inputmode="numeric">
-      </div>
-      <button class="row-del">この記録を削除</button>`;
-    const dateI = li.querySelector('.e-date');
-    const nameI = li.querySelector('.e-name');
-    const plI = li.querySelector('.e-pl');
-    nameI.value = r.name;
-    plI.value = r.pl;
+    const li = el('li', 'editing');
+    const grid = el('div', 'edit-grid');
+    const dateI = el('input', 'e-date'); dateI.type = 'date'; dateI.value = r.date;
+    const nameI = el('input', 'e-name'); nameI.type = 'text'; nameI.value = r.name;
+    const plI = el('input', 'e-pl'); plI.type = 'number'; plI.inputMode = 'numeric'; plI.value = r.pl;
+    grid.append(dateI, nameI, plI);
+    const del = el('button', 'row-del', 'この記録を削除');
+    li.append(grid, del);
 
     dateI.addEventListener('change', () => { if (dateI.value) { r.date = dateI.value; save(); } });
     nameI.addEventListener('input', () => { r.name = nameI.value; save(); });
@@ -317,12 +318,12 @@
       r.pl = (v === '' || isNaN(Number(v))) ? 0 : Math.round(Number(v));
       save(); updateTotal();
     });
-    li.querySelector('.row-del').addEventListener('click', () => remove(r.id));
+    del.addEventListener('click', () => remove(r.id));
     return li;
   }
 
   function updateTotal() {
-    const total = records.reduce((s, r) => s + r.pl, 0);
+    const total = records.reduce((s, r) => s + (Number(r.pl) || 0), 0);
     const totalEl = $('total');
     totalEl.textContent = formatYen(total);
     totalEl.className = 'total ' + (total > 0 ? 'plus' : (total < 0 ? 'minus' : 'zero'));
@@ -330,12 +331,17 @@
 
   // ===== ユーティリティ =====
   function formatYen(n) {
+    n = Math.round(Number(n)) || 0;
     const sign = n > 0 ? '+' : (n < 0 ? '-' : '');
     return sign + Math.abs(n).toLocaleString('ja-JP') + '円';
   }
   function formatDate(iso) {
+    if (typeof iso !== 'string' || iso.indexOf('-') < 0) return iso || '';
     const [y, m, d] = iso.split('-');
     return `${y}/${m}/${d}`;
+  }
+  function newId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
   function todayStr() {
     const d = new Date();
@@ -345,7 +351,16 @@
   function load() {
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      return Array.isArray(data) ? data : [];
+      if (!Array.isArray(data)) return [];
+      // 保存データを常に想定した型に正規化（壊れた/不正なデータで動作が崩れるのを防ぐ）
+      return data
+        .filter(r => r && typeof r === 'object')
+        .map(r => ({
+          id: (r.id != null && r.id !== '') ? String(r.id) : newId(),
+          date: typeof r.date === 'string' ? r.date : '',
+          name: typeof r.name === 'string' ? r.name : (r.name == null ? '' : String(r.name)),
+          pl: Number.isFinite(Number(r.pl)) ? Math.round(Number(r.pl)) : 0
+        }));
     } catch { return []; }
   }
   function save() {
