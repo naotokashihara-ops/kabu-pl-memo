@@ -363,8 +363,18 @@
         }));
     } catch { return []; }
   }
+  let saveWarned = false;
   function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    } catch (e) {
+      // プライベートブラウズや容量不足で保存できない場合でもアプリは動作継続。
+      // 警告は1回だけ表示（編集中の連続保存で何度も出さない）。
+      if (!saveWarned) {
+        saveWarned = true;
+        alert('データを保存できませんでした。ブラウザのプライベートモードや空き容量をご確認ください。この画面を開いている間は入力内容は保持されます。');
+      }
+    }
   }
 </script>
 </body>
